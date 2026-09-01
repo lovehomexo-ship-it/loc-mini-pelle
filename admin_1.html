@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mes locations">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Suivi locations mini-pelles</title>
+<style>
+  :root{--bg:#0f172a;--card:#1e293b;--card2:#334155;--line:#334155;--txt:#f1f5f9;--muted:#94a3b8;
+    --accent:#f97316;--blue:#2563eb;--ok:#22c55e;--warn:#eab308;--danger:#ef4444;--radius:16px;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(180deg,#0b1220,#0f172a);color:var(--txt);min-height:100vh;padding-bottom:90px}
+  .wrap{max-width:680px;margin:0 auto;padding:0 14px}
+  #login{max-width:400px;margin:60px auto;padding:24px}
+  #login h1{text-align:center;font-size:22px}
+  #login p{text-align:center;color:var(--muted);font-size:14px;margin-bottom:20px}
+  input,select,textarea{width:100%;padding:12px;border-radius:11px;border:1px solid var(--line);background:var(--card2);
+    color:var(--txt);font-size:16px;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  .btn{width:100%;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+  .btn.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
+  header.top{position:sticky;top:0;z-index:20;background:rgba(15,23,42,.92);backdrop-filter:blur(8px);
+    padding:14px 14px 10px;border-bottom:1px solid var(--line)}
+  .top-row{display:flex;align-items:center;justify-content:space-between;max-width:680px;margin:0 auto}
+  .top-row h1{font-size:17px;margin:0;display:flex;gap:7px;align-items:center}
+  .top-row .tools{display:flex;gap:8px}
+  .icon-btn{background:var(--card2);border:1px solid var(--line);color:var(--txt);width:38px;height:38px;border-radius:10px;
+    font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .tabs{display:flex;gap:6px;max-width:680px;margin:10px auto 0;padding:0 14px}
+  .tab{flex:1;text-align:center;padding:9px;border-radius:10px;background:transparent;border:1px solid transparent;
+    color:var(--muted);font-size:14px;font-weight:600;cursor:pointer}
+  .tab.active{background:var(--card);border-color:var(--line);color:var(--txt)}
+  section{margin-top:16px}
+  .hidden{display:none!important}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .tile .lab{font-size:12px;color:var(--muted);margin-bottom:6px}
+  .tile .val{font-size:22px;font-weight:800}
+  .tile .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .tile.accent{background:linear-gradient(135deg,#7c3f16,#b45309);border-color:#b45309}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-top:14px}
+  .card h3{margin:0 0 12px;font-size:15px}
+  .bars{display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:8px}
+  .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;justify-content:flex-end}
+  .bar{width:100%;background:linear-gradient(180deg,var(--accent),#b45309);border-radius:5px 5px 0 0;min-height:2px}
+  .bar-lab{font-size:10px;color:var(--muted)}
+  .bar-val{font-size:9px;color:var(--muted)}
+  .machine-line{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+  .machine-line:first-of-type{border-top:none}
+  .machine-line .dot{width:12px;height:12px;border-radius:50%}
+  .machine-line .grow{flex:1}
+  .machine-line .amt{font-weight:700}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .filters select,.filters input{width:auto;flex:1;min-width:120px;padding:9px 10px;font-size:14px}
+  .res{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px;border-left:4px solid var(--accent)}
+  .res .r1{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .res .name{font-weight:700;font-size:16px}
+  .res .dates{color:var(--muted);font-size:13px;margin-top:2px}
+  .res .meta{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+  .res .meta a{color:#93c5fd;text-decoration:none}
+  .res .money{text-align:right;white-space:nowrap}
+  .res .money .big{font-weight:800;font-size:16px}
+  .res .money .small{font-size:11px;color:var(--muted)}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+  .b-pending{background:#422006;color:#fbbf24}
+  .b-confirmed{background:#0c2f1a;color:#4ade80}
+  .b-done{background:#1e293b;color:#94a3b8;border:1px solid #475569}
+  .b-cancelled{background:#3b1d1d;color:#fca5a5;text-decoration:line-through}
+  .b-paid{background:#0c2f1a;color:#4ade80}
+  .res .actions{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+  .chip{background:var(--card2);border:1px solid var(--line);color:var(--txt);padding:7px 11px;border-radius:9px;font-size:13px;cursor:pointer;font-weight:600}
+  .chip.ok{background:#0c2f1a;border-color:#166534;color:#4ade80}
+  .chip.warn{color:#fbbf24}
+  .empty-msg{text-align:center;color:var(--muted);padding:30px 10px;font-size:14px}
+  .pending-banner{background:#422006;border:1px solid #b45309;border-radius:14px;padding:12px 14px;margin-top:14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+  .pending-banner .n{background:var(--accent);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+  .deliv{background:#0c2f1a;border:1px solid #166534;color:#7ee2a8;border-radius:9px;padding:7px 10px;margin-top:9px;font-size:13px;font-weight:700}
+  .deliv.veille{background:#3a1d06;border:1px solid var(--accent);color:#fdba74;animation:vpulse 1.8s infinite}
+  @keyframes vpulse{0%{box-shadow:0 0 0 0 rgba(249,115,22,.5)}70%{box-shadow:0 0 0 7px rgba(249,115,22,0)}100%{box-shadow:0 0 0 0 rgba(249,115,22,0)}}
+  .deliv-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);cursor:pointer}
+  .deliv-row:first-of-type{border-top:none}
+  .deliv-row .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+  .deliv-row .grow{flex:1;font-size:14px}
+  .vtag{background:var(--accent);color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-left:4px}
+  .quickbtn{width:100%;margin-top:8px;padding:10px;border-radius:10px;background:#3a1d06;border:1px solid var(--accent);color:#fdba74;font-size:14px;font-weight:600;cursor:pointer}
+  .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .cal-head button{background:var(--card2);border:1px solid var(--line);color:var(--txt);width:38px;height:38px;border-radius:10px;font-size:18px;cursor:pointer}
+  .cal-title{font-weight:700;text-transform:capitalize}
+  .cgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+  .cdow{text-align:center;font-size:10px;color:var(--muted);padding:3px 0}
+  .cday{min-height:52px;border-radius:8px;background:var(--card2);padding:3px;font-size:12px;position:relative;min-width:0;overflow:hidden}
+  .cday.empty{background:transparent}
+  .cday .dn{color:var(--muted);font-size:11px}
+  .cday.today .dn{color:var(--accent);font-weight:800}
+  .cev{font-size:9px;padding:1px 3px;border-radius:3px;color:#fff;margin-top:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;cursor:pointer;max-width:100%}
+  .fab{position:fixed;right:calc(50% - 340px + 18px);bottom:22px;width:58px;height:58px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:30px;cursor:pointer;box-shadow:0 8px 24px rgba(249,115,22,.45);z-index:30}
+  @media(max-width:720px){.fab{right:18px}}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+  .sheet{background:var(--card);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+  .sheet h2{margin:0;font-size:18px}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;position:sticky;top:-20px;background:var(--card);padding:6px 0 8px;z-index:2}
+  .closeX{background:var(--card2);border:1px solid var(--line);color:var(--txt);width:36px;height:36px;border-radius:50%;font-size:16px;cursor:pointer;flex:0 0 auto}
+  .sheet label{display:block;font-size:13px;color:var(--muted);margin:11px 0 5px;font-weight:500}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .check{display:flex;align-items:center;gap:9px;margin-top:14px}
+  .check input{width:auto}
+  .sheet .btns{display:flex;gap:10px;margin-top:20px}
+  .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#0c2f1a;border:1px solid #166534;color:#4ade80;padding:11px 18px;border-radius:12px;z-index:60;font-size:14px;font-weight:600;opacity:0;transition:.3s}
+  .toast.show{opacity:1}
+  .toast.err{background:#3b1d1d;border-color:#7f1d1d;color:#fca5a5}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h1>🚜 Suivi de mes locations</h1>
+  <p>Entrez votre code d'accès personnel</p>
+  <input id="token" type="password" placeholder="Code d'accès" autocomplete="current-password">
+  <div id="loginErr" class="hidden" style="color:#fca5a5;font-size:13px;margin-top:8px;text-align:center"></div>
+  <button class="btn" style="margin-top:14px" id="loginBtn">Entrer</button>
+  <label style="display:flex;gap:8px;align-items:center;justify-content:center;margin-top:14px;color:var(--muted);font-size:13px">
+    <input type="checkbox" id="remember" checked style="width:auto"> Rester connecté sur cet appareil
+  </label>
+</div>
+
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="top-row">
+      <h1>🚜 <span id="bizName">Mes locations</span></h1>
+      <div class="tools">
+        <button class="icon-btn" id="btnExport" title="Exporter CSV">⤓</button>
+        <button class="icon-btn" id="btnSettings" title="Réglages">⚙︎</button>
+        <button class="icon-btn" id="btnLogout" title="Déconnexion">⏻</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="dash">Tableau de bord</button>
+      <button class="tab" data-tab="cal">Calendrier</button>
+      <button class="tab" data-tab="list">Locations</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <section id="tab-dash">
+      <div id="pendingBanner"></div>
+      <div id="upcomingDeliv"></div>
+      <div class="tiles" style="margin-top:14px">
+        <div class="tile accent"><div class="lab">CA total encaissé</div><div class="val" id="kTotal">—</div><div class="sub" id="kTotalSub"></div></div>
+        <div class="tile"><div class="lab">Cette année (<span id="curYear"></span>)</div><div class="val" id="kYear">—</div><div class="sub" id="kYearSub"></div></div>
+        <div class="tile"><div class="lab">Nb de locations</div><div class="val" id="kCount">—</div><div class="sub" id="kCountSub"></div></div>
+        <div class="tile"><div class="lab">Total livraisons</div><div class="val" id="kDeliv">—</div><div class="sub">facturé TTC</div></div>
+      </div>
+      <div class="card">
+        <h3>Chiffre d'affaires par mois <span id="chartYear" style="color:var(--muted);font-weight:400"></span></h3>
+        <div class="bars" id="bars"></div>
+      </div>
+      <div class="card">
+        <h3>Par machine</h3>
+        <div id="byMachine"></div>
+      </div>
+    </section>
+
+    <section id="tab-cal" class="hidden">
+      <div class="card">
+        <div class="cal-head">
+          <button id="cPrev">‹</button>
+          <div class="cal-title" id="cTitle"></div>
+          <button id="cNext">›</button>
+        </div>
+        <div class="cgrid" id="cDow"></div>
+        <div class="cgrid" id="cDays"></div>
+      </div>
+    </section>
+
+    <section id="tab-list" class="hidden">
+      <div class="filters">
+        <select id="fMachine"><option value="">Toutes machines</option></select>
+        <select id="fStatus">
+          <option value="">Tous statuts</option>
+          <option value="pending">Pré-réservations</option>
+          <option value="confirmed">Confirmées</option>
+          <option value="done">Terminées</option>
+          <option value="cancelled">Annulées</option>
+        </select>
+        <select id="fYear"><option value="">Toutes années</option></select>
+      </div>
+      <input id="fSearch" placeholder="🔎 Rechercher un nom, email, adresse…" style="margin-bottom:12px">
+      <div id="listBox"></div>
+    </section>
+
+    <div style="text-align:center;color:#475569;font-size:11px;padding:22px 0 6px">Système de réservation · version 6 (heures · photo · notifications)</div>
+  </div>
+
+  <button class="fab" id="fab">＋</button>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+const API = "https://itriuwxsgdajbzwuscef.supabase.co/functions/v1/admin";
+const MONTHS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const MONTHS_SHORT=["jan","fév","mar","avr","mai","jui","juil","aoû","sep","oct","nov","déc"];
+const DOW=["L","M","M","J","V","S","D"];
+const STATUS_LABEL={pending:"Pré-réservation",confirmed:"Confirmée",done:"Terminée",cancelled:"Annulée"};
+let TOKEN=null, RES=[], MACHINES=[], BIZ="Mes locations", SMS="", NTFY="";
+let cViewY,cViewM, photoData;
+const $=id=>document.getElementById(id);
+const eur=n=>Number(n||0).toLocaleString('fr-FR')+' €';
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parse=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mapsLink=a=>'https://maps.apple.com/?q='+encodeURIComponent(a||'');
+function toast(m,err){const t=$('toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',2400);}
+
+async function call(action,payload){
+  const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify(Object.assign({action,token:TOKEN},payload))});
+  return r.json();
+}
+
+$('loginBtn').onclick=doLogin;
+$('token').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+async function doLogin(){
+  const t=$('token').value.trim(); if(!t)return;
+  TOKEN=t;
+  const r=await call('list',{});
+  if(r.ok){ if($('remember').checked){ try{localStorage.setItem('mp_token',t);}catch(e){} } startApp(r); }
+  else { $('loginErr').textContent='Code incorrect.'; $('loginErr').classList.remove('hidden'); TOKEN=null; }
+}
+function tryAuto(){ let t=null; try{t=localStorage.getItem('mp_token');}catch(e){}
+  if(t){ TOKEN=t; call('list',{}).then(r=>{ if(r.ok) startApp(r); }); } }
+
+function startApp(r){
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  const t=new Date(); cViewY=t.getFullYear(); cViewM=t.getMonth();
+  renderDowCal();
+  applyData(r);
+  renderCal();
+}
+function applyData(r){
+  RES=r.reservations||[]; MACHINES=r.machines||[]; BIZ=r.biz||"Mes locations"; SMS=r.sms||""; NTFY=r.ntfy||"";
+  $('bizName').textContent=BIZ; renderAll();
+}
+async function reload(){ const r=await call('list',{}); if(r.ok) applyData(r); }
+
+function machine(id){ return MACHINES.find(m=>m.id===id)||{name:'—',color:'#64748b'}; }
+function total(r){ return Number(r.price_location||0)+Number(r.price_delivery||0); }
+function isRevenue(r){ return r.status==='confirmed'||r.status==='done'; }
+function fmtD(s){const d=parse(s);return d.getDate()+' '+MONTHS_SHORT[d.getMonth()]+' '+d.getFullYear();}
+function statusBadge(s){ return `<span class="badge b-${s}">${STATUS_LABEL[s]}</span>`; }
+
+function renderAll(){ renderFilters(); renderDash(); renderList(); renderCal(); renderPending(); }
+
+function renderFilters(){
+  const fm=$('fMachine'); const cur=fm.value;
+  fm.innerHTML='<option value="">Toutes machines</option>'+MACHINES.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  fm.value=cur;
+  const years=[...new Set(RES.map(r=>r.date_start.slice(0,4)))].sort().reverse();
+  const fy=$('fYear'); const cy=fy.value;
+  fy.innerHTML='<option value="">Toutes années</option>'+years.map(y=>`<option value="${y}">${y}</option>`).join('');
+  fy.value=cy;
+}
+
+function renderPending(){
+  const pend=RES.filter(r=>r.status==='pending'); const b=$('pendingBanner');
+  b.innerHTML=pend.length?`<div class="pending-banner" onclick="goPending()"><div class="n">${pend.length}</div>
+    <div><b>${pend.length} pré-réservation${pend.length>1?'s':''}</b> en attente de validation<br>
+    <span style="color:#fbbf24;font-size:12px">Touchez pour les traiter →</span></div></div>`:'';
+}
+function goPending(){ switchTab('list'); $('fStatus').value='pending'; renderList(); window.scrollTo(0,0); }
+
+function renderDash(){
+  const rev=RES.filter(isRevenue);
+  const totLoc=rev.reduce((s,r)=>s+Number(r.price_location||0),0);
+  const totLiv=rev.reduce((s,r)=>s+Number(r.price_delivery||0),0);
+  const y=new Date().getFullYear();
+  $('curYear').textContent=y; $('chartYear').textContent='· '+y;
+  const yearRev=rev.filter(r=>+r.date_start.slice(0,4)===y);
+  const yearTot=yearRev.reduce((s,r)=>s+total(r),0);
+  $('kTotal').textContent=eur(totLoc+totLiv);
+  $('kTotalSub').textContent=`dont ${eur(totLoc)} loc. + ${eur(totLiv)} livr.`;
+  $('kYear').textContent=eur(yearTot);
+  $('kYearSub').textContent=`${yearRev.length} location(s)`;
+  $('kCount').textContent=rev.length;
+  const pend=RES.filter(r=>r.status==='pending').length;
+  $('kCountSub').textContent=pend?`+ ${pend} en attente`:'confirmées / terminées';
+  $('kDeliv').textContent=eur(totLiv);
+  const months=Array(12).fill(0);
+  yearRev.forEach(r=>{ months[parse(r.date_start).getMonth()]+=total(r); });
+  const max=Math.max(...months,1);
+  $('bars').innerHTML=months.map((v,i)=>`<div class="bar-col"><div class="bar-val">${v?Math.round(v):''}</div>
+    <div class="bar" style="height:${v/max*90}px"></div><div class="bar-lab">${MONTHS_SHORT[i].slice(0,1).toUpperCase()}</div></div>`).join('');
+  $('byMachine').innerHTML=MACHINES.map(m=>{
+    const rr=rev.filter(r=>r.machine_id===m.id); const t=rr.reduce((s,r)=>s+total(r),0);
+    return `<div class="machine-line"><span class="dot" style="background:${m.color}"></span>
+      <span class="grow">${esc(m.name)}<br><span style="color:var(--muted);font-size:12px">${rr.length} location(s)</span></span>
+      <span class="amt">${eur(t)}</span></div>`;
+  }).join('')||'<div class="empty-msg">Aucune machine</div>';
+  // Prochaines livraisons
+  const todayIso=iso(new Date());
+  const deliv=RES.filter(r=>r.delivery_date&&r.status!=='cancelled'&&r.delivery_date>=todayIso)
+    .sort((a,b)=>(a.delivery_date+(a.delivery_time||'99:99')).localeCompare(b.delivery_date+(b.delivery_time||'99:99'))).slice(0,6);
+  $('upcomingDeliv').innerHTML=deliv.length?`<div class="card" style="border-color:var(--accent);margin-top:14px">
+    <h3>🚚 Prochaines livraisons</h3>${deliv.map(r=>{const m=machine(r.machine_id);const v=r.delivery_date<r.date_start;
+      const nm=esc(((r.client_prenom||'')+' '+(r.client_nom||'')).trim())||'?';
+      return `<div class="deliv-row${v?' veille':''}" onclick="editRes('${r.id}')" style="${v?'background:#3a1d06;margin:4px -6px;padding:9px 8px;border-radius:8px;border-top:none':''}">
+        <span class="dot" style="background:${m.color}"></span>
+        <span class="grow"><b>${fmtD(r.delivery_date)}${r.delivery_time?' · '+r.delivery_time:''}</b>${v?' <span class="vtag">LA VEILLE</span>':''}<br>
+        <span style="color:var(--muted);font-size:12px">${nm} — ${r.delivery_address?`<a href="${mapsLink(r.delivery_address)}" target="_blank" rel="noopener" style="color:#93c5fd" onclick="event.stopPropagation()">${esc(r.delivery_address)}</a>`:'adresse à préciser'}</span></span></div>`;}).join('')}</div>`:'';
+}
+
+function renderList(){
+  const fm=$('fMachine').value, fs=$('fStatus').value, fy=$('fYear').value, q=$('fSearch').value.toLowerCase().trim();
+  let list=RES.slice().sort((a,b)=>b.date_start.localeCompare(a.date_start));
+  if(fm)list=list.filter(r=>r.machine_id===+fm);
+  if(fs)list=list.filter(r=>r.status===fs);
+  if(fy)list=list.filter(r=>r.date_start.slice(0,4)===fy);
+  if(q)list=list.filter(r=>((r.client_prenom||'')+' '+(r.client_nom||'')+' '+(r.client_email||'')+' '+(r.delivery_address||'')).toLowerCase().includes(q));
+  const box=$('listBox');
+  if(!list.length){ box.innerHTML='<div class="empty-msg">Aucune location ne correspond.</div>'; return; }
+  box.innerHTML=list.map(r=>{
+    const m=machine(r.machine_id);
+    const nm=esc(((r.client_prenom||'')+' '+(r.client_nom||'')).trim())||'Sans nom';
+    const dr=r.date_start===r.date_end?fmtD(r.date_start):`${fmtD(r.date_start)} → ${fmtD(r.date_end)}`;
+    let meta='';
+    if(r.client_phone)meta+=`📞 <a href="tel:${esc(r.client_phone)}">${esc(r.client_phone)}</a> · `;
+    if(r.client_email)meta+=`✉️ <a href="mailto:${esc(r.client_email)}">${esc(r.client_email)}</a>`;
+    if(r.delivery_address)meta+=`<br>📍 <a href="${mapsLink(r.delivery_address)}" target="_blank" rel="noopener">${esc(r.delivery_address)}</a>`;
+    if(r.hours_start!=null||r.hours_end!=null)meta+=`<br>⏱️ Compteur : ${r.hours_start??'?'} → ${r.hours_end??'?'} h`;
+    if(r.notes)meta+=`<br>📝 ${esc(r.notes)}`;
+    const veille=r.delivery_date&&r.delivery_date<r.date_start;
+    const delivHtml=r.delivery_date?`<div class="deliv${veille?' veille':''}">🚚 Livraison ${fmtD(r.delivery_date)}${r.delivery_time?' à '+r.delivery_time:''}${veille?' · LA VEILLE !':''}</div>`:'';
+    let acts='';
+    if(r.status==='pending')acts+=`<button class="chip ok" onclick="setStatus('${r.id}','confirmed')">✓ Valider</button>`;
+    if(r.status==='confirmed')acts+=`<button class="chip ok" onclick="setStatus('${r.id}','done')">Marquer terminée</button>`;
+    if(r.has_photo)acts+=`<button class="chip" onclick="showPhoto('${r.id}')">📷 Photo</button>`;
+    acts+=`<button class="chip" onclick="editRes('${r.id}')">Modifier</button>`;
+    if(r.status!=='cancelled')acts+=`<button class="chip warn" onclick="setStatus('${r.id}','cancelled')">Annuler</button>`;
+    acts+=`<button class="chip" onclick="delRes('${r.id}')">🗑</button>`;
+    return `<div class="res" style="border-left-color:${m.color}">
+      <div class="r1">
+        <div><div class="name">${nm}</div>
+          <div class="dates">${dr}</div>
+          <div style="margin-top:5px">${statusBadge(r.status)} <span class="badge" style="background:${m.color}22;color:${m.color}">${esc(m.name)}</span> ${r.paid?'<span class="badge b-paid">payé</span>':''}</div>
+        </div>
+        <div class="money"><div class="big">${eur(total(r))}</div>
+          <div class="small">${eur(r.price_location)} loc.</div>
+          <div class="small">${eur(r.price_delivery)} livr.</div></div>
+      </div>
+      ${delivHtml}
+      ${meta?`<div class="meta">${meta}</div>`:''}
+      <div class="actions">${acts}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderDowCal(){ $('cDow').innerHTML=DOW.map(d=>`<div class="cdow">${d}</div>`).join(''); }
+function renderCal(){
+  if(cViewY==null)return;
+  $('cTitle').textContent=MONTHS[cViewM]+' '+cViewY;
+  const first=new Date(cViewY,cViewM,1);
+  let sd=(first.getDay()+6)%7;
+  const dim=new Date(cViewY,cViewM+1,0).getDate();
+  const tIso=iso(new Date());
+  const g=$('cDays');g.innerHTML='';
+  for(let i=0;i<sd;i++){const e=document.createElement('div');e.className='cday empty';g.appendChild(e);}
+  for(let day=1;day<=dim;day++){
+    const dt=new Date(cViewY,cViewM,day);const s=iso(dt);
+    const evs=RES.filter(r=>r.status!=='cancelled'&&s>=r.date_start&&s<=r.date_end);
+    const el=document.createElement('div');el.className='cday'+(s===tIso?' today':'');
+    el.innerHTML=`<div class="dn">${day}</div>`+evs.slice(0,3).map(r=>{
+      const m=machine(r.machine_id);
+      const nm=esc(((r.client_prenom||'')+' '+(r.client_nom||'')).trim())||'?';
+      const op=r.status==='pending'?'opacity:.6;border:1px dashed #fff':'';
+      return `<div class="cev" style="background:${m.color};${op}" onclick="editRes('${r.id}')">${nm}</div>`;
+    }).join('')+(evs.length>3?`<div style="font-size:9px;color:var(--muted)">+${evs.length-3}</div>`:'');
+    g.appendChild(el);
+  }
+}
+$('cPrev').onclick=()=>{cViewM--;if(cViewM<0){cViewM=11;cViewY--;}renderCal();};
+$('cNext').onclick=()=>{cViewM++;if(cViewM>11){cViewM=0;cViewY++;}renderCal();};
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>switchTab(t.dataset.tab));
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  ['dash','cal','list'].forEach(n=>$('tab-'+n).classList.toggle('hidden',n!==name));
+  if(name==='cal') renderCal();
+}
+
+async function setStatus(id,status){
+  const res=await call('save',{reservation:{id,status}});
+  if(res.ok){toast(status==='confirmed'?'Réservation validée ✓':status==='cancelled'?'Réservation annulée':'Mise à jour ✓');reload();}
+  else toast(res.error||'Erreur',true);
+}
+async function delRes(id){
+  if(!confirm('Supprimer définitivement cette location ?'))return;
+  const res=await call('delete',{id});
+  if(res.ok){closeModal();toast('Supprimée');reload();} else toast('Erreur',true);
+}
+async function showPhoto(id){
+  const res=await call('getphoto',{id}); if(!res.photo){toast('Pas de photo',true);return;}
+  $('modalRoot').innerHTML=`<div class="overlay" id="ov" onclick="closeModal()" style="align-items:center"><img src="${res.photo}" style="max-width:92vw;max-height:88vh;border-radius:12px"></div>`;
+}
+
+// ---- Photo compression ----
+function compressImage(file, cb){
+  const rd=new FileReader();
+  rd.onload=()=>{ const img=new Image(); img.onload=()=>{
+    const max=1200; let w=img.width,h=img.height;
+    if(w>h && w>max){h=Math.round(h*max/w);w=max;} else if(h>=w && h>max){w=Math.round(w*max/h);h=max;}
+    const c=document.createElement('canvas'); c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    cb(c.toDataURL('image/jpeg',0.7));
+  }; img.src=rd.result; };
+  rd.readAsDataURL(file);
+}
+function renderPhotoBox(d){
+  const box=$('photoBox'); if(!box)return;
+  box.innerHTML=d?`<img src="${d}" style="max-width:100%;border-radius:10px;margin-top:8px;display:block">
+    <button type="button" class="chip warn" style="margin-top:6px" onclick="removePhoto()">🗑 Retirer la photo</button>`:'';
+}
+function removePhoto(){ photoData=''; renderPhotoBox(''); const f=$('fmPhoto'); if(f)f.value=''; }
+
+function openForm(r){
+  r=r||{}; const isNew=!r.id; photoData=undefined;
+  const html=`<div class="overlay" id="ov"><div class="sheet">
+    <div class="sheet-head"><h2>${isNew?'Nouvelle location':'Modifier la location'}</h2>
+      <button class="closeX" onclick="closeModal()" title="Fermer">✕</button></div>
+    <label>Machine</label>
+    <select id="fmMachine">${MACHINES.map(m=>`<option value="${m.id}" ${r.machine_id===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select>
+    <label>Statut</label>
+    <select id="fmStatus">${Object.keys(STATUS_LABEL).map(s=>`<option value="${s}" ${r.status===s?'selected':''}>${STATUS_LABEL[s]}</option>`).join('')}</select>
+    <div class="row2">
+      <div><label>Date début</label><input id="fmDs" type="date" value="${r.date_start||''}"></div>
+      <div><label>Date fin</label><input id="fmDe" type="date" value="${r.date_end||''}"></div>
+    </div>
+    <div class="row2">
+      <div><label>🚚 Date de livraison</label><input id="fmDdate" type="date" value="${r.delivery_date||''}"></div>
+      <div><label>Heure de livraison</label><input id="fmDtime" type="time" value="${r.delivery_time||''}"></div>
+    </div>
+    <button type="button" class="quickbtn" onclick="setVeille()">🌙 Livraison la veille au soir (18:00)</button>
+    <div class="row2">
+      <div><label>Prénom du client</label><input id="fmPrenom" value="${esc(r.client_prenom||'')}" placeholder="Prénom"></div>
+      <div><label>Nom</label><input id="fmNom" value="${esc(r.client_nom||'')}" placeholder="Nom"></div>
+    </div>
+    <label>Email</label><input id="fmEmail" type="email" value="${esc(r.client_email||'')}">
+    <label>Téléphone</label><input id="fmPhone" type="tel" value="${esc(r.client_phone||'')}">
+    <label>Adresse de livraison</label><textarea id="fmAddr" rows="2">${esc(r.delivery_address||'')}</textarea>
+    <div class="row2">
+      <div><label>Prix location (€)</label><input id="fmPl" type="number" inputmode="decimal" value="${r.price_location??''}"></div>
+      <div><label>Prix livraison TTC (€)</label><input id="fmPd" type="number" inputmode="decimal" value="${r.price_delivery??''}"></div>
+    </div>
+    <div class="row2">
+      <div><label>⏱️ Compteur h. départ</label><input id="fmHs" type="number" inputmode="decimal" value="${r.hours_start??''}"></div>
+      <div><label>⏱️ Compteur h. retour</label><input id="fmHe" type="number" inputmode="decimal" value="${r.hours_end??''}"></div>
+    </div>
+    <label>📷 Photo (état machine, chantier…)</label>
+    <div id="photoBox">${r.has_photo?'<div style="color:var(--muted);font-size:13px;margin-top:4px">Chargement de la photo…</div>':''}</div>
+    <input id="fmPhoto" type="file" accept="image/*" capture="environment" style="margin-top:6px">
+    <label>Notes</label><textarea id="fmNotes" rows="2">${esc(r.notes||'')}</textarea>
+    <div class="check"><input type="checkbox" id="fmPaid" ${r.paid?'checked':''}><label style="margin:0">Réglé / payé</label></div>
+    <div class="btns">
+      <button class="btn ghost" onclick="closeModal()">Annuler</button>
+      <button class="btn" id="fmSave">${isNew?'Créer':'Enregistrer'}</button>
+    </div>
+    ${!isNew?`<div class="btns" style="margin-top:10px">
+      <button class="btn ghost" onclick="duplicateRes('${r.id}')">📄 Dupliquer</button>
+      <button class="btn ghost" style="color:#fca5a5;border-color:#7f1d1d" onclick="delRes('${r.id}')">🗑 Supprimer</button>
+    </div>`:''}
+  </div></div>`;
+  $('modalRoot').innerHTML=html;
+  $('ov').onclick=e=>{if(e.target.id==='ov')closeModal();};
+  $('fmSave').onclick=()=>saveForm(r.id);
+  $('fmPhoto').onchange=e=>{const f=e.target.files[0];if(f)compressImage(f,d=>{photoData=d;renderPhotoBox(d);});};
+  if(r.has_photo && r.id){ call('getphoto',{id:r.id}).then(res=>{ if(res.photo) renderPhotoBox(res.photo); else {const b=$('photoBox');if(b)b.innerHTML='';} }); }
+}
+function closeModal(){ $('modalRoot').innerHTML=''; }
+function setVeille(){
+  const ds=$('fmDs').value;
+  if(!ds){toast('Renseigne d\'abord la date de début',true);return;}
+  const d=parse(ds); d.setDate(d.getDate()-1);
+  $('fmDdate').value=iso(d);
+  if(!$('fmDtime').value)$('fmDtime').value='18:00';
+}
+async function saveForm(id){
+  const ds=$('fmDs').value, de=$('fmDe').value||$('fmDs').value;
+  if(!ds){toast('Indiquez au moins la date de début',true);return;}
+  const payload={id,machine_id:+$('fmMachine').value,status:$('fmStatus').value,
+    date_start:ds,date_end:de,delivery_date:$('fmDdate').value||null,delivery_time:$('fmDtime').value||null,
+    client_prenom:$('fmPrenom').value.trim(),client_nom:$('fmNom').value.trim(),
+    client_email:$('fmEmail').value.trim(),client_phone:$('fmPhone').value.trim(),
+    delivery_address:$('fmAddr').value.trim(),price_location:+$('fmPl').value||0,price_delivery:+$('fmPd').value||0,
+    hours_start:$('fmHs').value!==''?+$('fmHs').value:null,hours_end:$('fmHe').value!==''?+$('fmHe').value:null,
+    notes:$('fmNotes').value.trim(),paid:$('fmPaid').checked,source:id?undefined:'admin'};
+  if(photoData!==undefined) payload.photo=photoData;
+  const res=await call('save',{reservation:payload});
+  if(res.ok){toast(id?'Enregistré ✓':'Location créée ✓');closeModal();reload();}
+  else toast(res.error||'Erreur',true);
+}
+function editRes(id){ const r=RES.find(x=>x.id===id); if(r)openForm(r); }
+function duplicateRes(id){
+  const r=RES.find(x=>x.id===id); if(!r)return;
+  const copy=Object.assign({},r); delete copy.id; delete copy.created_at; delete copy.updated_at;
+  copy.status='confirmed'; copy.paid=false; copy.has_photo=false;
+  closeModal(); openForm(copy);
+  toast('Copie prête — change les dates puis « Créer »');
+}
+$('fab').onclick=()=>openForm();
+
+$('btnSettings').onclick=()=>{
+  const link=location.origin+location.pathname.replace(/admin(\.html)?$/,'book$1');
+  const html=`<div class="overlay" id="ov"><div class="sheet">
+    <div class="sheet-head"><h2>⚙︎ Réglages</h2>
+      <button class="closeX" onclick="closeModal()" title="Fermer">✕</button></div>
+    <label>Nom affiché de l'activité</label>
+    <input id="setBiz" value="${esc(BIZ)}">
+    <label>📱 Mon numéro SMS (affiché aux clients pour qu'ils me préviennent)</label>
+    <input id="setSms" type="tel" value="${esc(SMS)}" placeholder="06 12 34 56 78">
+    <h3 style="margin:18px 0 4px;font-size:14px">Mes machines</h3>
+    ${MACHINES.map(m=>`<div class="row2" style="margin-top:8px">
+      <input id="mn_${m.id}" value="${esc(m.name)}">
+      <input id="mc_${m.id}" type="color" value="${m.color}" style="height:44px;padding:4px">
+    </div>`).join('')}
+    <h3 style="margin:18px 0 6px;font-size:14px">🔔 Notifications téléphone</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Installe l'appli <b>ntfy</b> (gratuite, App Store / Play Store), puis abonne-toi à ce canal pour être notifié à chaque nouvelle réservation :</p>
+    <input id="setNtfy" value="${esc(NTFY)}" readonly onclick="this.select()">
+    <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Dans ntfy : « + » → « Subscribe to topic » → colle exactement ce nom.</p>
+    <h3 style="margin:18px 0 6px;font-size:14px">🔑 Changer mon code d'accès</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Laisse vide pour ne rien changer. Sinon saisis un nouveau code (4 caractères minimum).</p>
+    <input id="setPwd" type="text" placeholder="Nouveau code d'accès" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <h3 style="margin:18px 0 6px;font-size:14px">Lien de pré-réservation clients</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 8px">À envoyer à vos locataires pour qu'ils réservent eux-mêmes :</p>
+    <input id="setLink" value="${link}" readonly onclick="this.select()">
+    <button class="btn ghost" style="margin-top:8px" onclick="copyLink('${link}')">📋 Copier le lien</button>
+    <div class="btns">
+      <button class="btn ghost" onclick="closeModal()">Fermer</button>
+      <button class="btn" id="setSave">Enregistrer</button>
+    </div>
+  </div></div>`;
+  $('modalRoot').innerHTML=html;
+  $('ov').onclick=e=>{if(e.target.id==='ov')closeModal();};
+  $('setSave').onclick=saveSettings;
+};
+function copyLink(l){ navigator.clipboard.writeText(l).then(()=>toast('Lien copié ✓')); }
+async function saveSettings(){
+  const newPwd=$('setPwd')?$('setPwd').value.trim():'';
+  if(newPwd && newPwd.length<4){ toast('Code trop court (4 caractères min.)',true); return; }
+  await call('config',{key:'business_name',value:$('setBiz').value.trim()});
+  await call('config',{key:'sms_phone',value:$('setSms').value.trim()});
+  for(const m of MACHINES){ await call('machine',{machine:{id:m.id,name:$('mn_'+m.id).value.trim(),color:$('mc_'+m.id).value}}); }
+  if(newPwd){ const r=await call('config',{key:'admin_token',value:newPwd});
+    if(r.ok){ TOKEN=newPwd; try{localStorage.setItem('mp_token',newPwd);}catch(e){} toast('Réglages + nouveau code enregistrés ✓'); }
+    else { toast('Code non modifié : '+(r.error||'erreur'),true); } }
+  else { toast('Réglages enregistrés ✓'); }
+  closeModal(); reload();
+}
+
+$('btnExport').onclick=()=>{
+  const head=['Machine','Statut','Prénom','Nom','Email','Téléphone','Adresse livraison','Début','Fin','Livraison','Heure livr.','Compteur départ','Compteur retour','Prix location','Prix livraison TTC','Total','Payé','Notes'];
+  const rows=RES.slice().sort((a,b)=>a.date_start.localeCompare(b.date_start)).map(r=>[
+    machine(r.machine_id).name,STATUS_LABEL[r.status],r.client_prenom||'',r.client_nom||'',r.client_email||'',
+    r.client_phone||'',r.delivery_address||'',r.date_start,r.date_end,r.delivery_date||'',r.delivery_time||'',
+    r.hours_start??'',r.hours_end??'',r.price_location,r.price_delivery,total(r),r.paid?'oui':'non',(r.notes||'').replace(/\n/g,' ')]);
+  const csv=[head,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='locations_mini-pelles.csv';a.click();
+  toast('Export CSV téléchargé');
+};
+
+$('btnLogout').onclick=()=>{ try{localStorage.removeItem('mp_token');}catch(e){} location.reload(); };
+$('fMachine').onchange=renderList; $('fStatus').onchange=renderList; $('fYear').onchange=renderList; $('fSearch').oninput=renderList;
+
+tryAuto();
+</script>
+</body>
+</html>
