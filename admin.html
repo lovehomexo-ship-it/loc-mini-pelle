@@ -210,6 +210,7 @@ const MONTHS_SHORT=["jan","fév","mar","avr","mai","jui","juil","aoû","sep","oc
 const DOW=["L","M","M","J","V","S","D"];
 const STATUS_LABEL={pending:"Pré-réservation",confirmed:"Confirmée",done:"Terminée",cancelled:"Annulée"};
 let TOKEN=null, RES=[], MACHINES=[], BIZ="Mes locations", SMS="", NTFY="";
+let MAIL={on:true,from:"",fromName:"",intro:"",notes:"",ready:false};
 let cViewY,cViewM, photoData;
 const $=id=>document.getElementById(id);
 const eur=n=>Number(n||0).toLocaleString('fr-FR')+' €';
@@ -246,6 +247,7 @@ function startApp(r){
 }
 function applyData(r){
   RES=r.reservations||[]; MACHINES=r.machines||[]; BIZ=r.biz||"Mes locations"; SMS=r.sms||""; NTFY=r.ntfy||"";
+  MAIL={on:r.emailOn!==false, from:r.emailFrom||"", fromName:r.emailFromName||"", intro:r.emailIntro||"", notes:r.emailNotes||"", ready:!!r.emailReady};
   $('bizName').textContent=BIZ; renderAll();
 }
 async function reload(){ const r=await call('list',{}); if(r.ok) applyData(r); }
@@ -532,6 +534,25 @@ $('btnSettings').onclick=()=>{
     <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Installe l'appli <b>ntfy</b> (gratuite, App Store / Play Store), puis abonne-toi à ce canal pour être notifié à chaque nouvelle réservation :</p>
     <input id="setNtfy" value="${esc(NTFY)}" readonly onclick="this.select()">
     <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Dans ntfy : « + » → « Subscribe to topic » → colle exactement ce nom.</p>
+    <h3 style="margin:18px 0 6px;font-size:14px">✉︎ Mail de confirmation client</h3>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 10px">Envoyé automatiquement au client quand vous passez sa demande en « Confirmée ». Un seul envoi par réservation.</p>
+    <div style="background:${MAIL.ready?'#052e16':'#3f1d1d'};border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px">
+      ${MAIL.ready ? '✓ Service d\'envoi connecté' : '⚠︎ Service d\'envoi non configuré — les mails ne partiront pas'}
+    </div>
+    <label style="display:flex;align-items:center;gap:9px;margin:0 0 12px;cursor:pointer">
+      <input type="checkbox" id="setMailOn" ${MAIL.on?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)">
+      <span>Activer l'envoi automatique</span>
+    </label>
+    <label>Adresse expéditrice <span style="color:var(--muted);font-weight:400">(doit être validée chez Brevo)</span></label>
+    <input id="setMailFrom" type="email" value="${esc(MAIL.from)}" placeholder="moi@exemple.fr" autocapitalize="off" spellcheck="false">
+    <label>Nom affiché de l'expéditeur</label>
+    <input id="setMailName" value="${esc(MAIL.fromName)}" placeholder="Location Mini-pelles">
+    <label>Phrase d'introduction</label>
+    <textarea id="setMailIntro" rows="3" placeholder="Votre demande de location a bien été prise en compte et elle est validée.">${esc(MAIL.intro)}</textarea>
+    <label>Rappels affichés en fin de mail</label>
+    <textarea id="setMailNotes" rows="5" placeholder="Livraison la veille, plein de carburant au retour…">${esc(MAIL.notes)}</textarea>
+    <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Le récapitulatif (machine, dates, adresse, prix) est ajouté automatiquement. Ces deux textes l'encadrent.</p>
+
     <h3 style="margin:18px 0 6px;font-size:14px">🔑 Changer mon code d'accès</h3>
     <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Laisse vide pour ne rien changer. Sinon saisis un nouveau code (4 caractères minimum).</p>
     <input id="setPwd" type="text" placeholder="Nouveau code d'accès" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -554,6 +575,13 @@ async function saveSettings(){
   if(newPwd && newPwd.length<4){ toast('Code trop court (4 caractères min.)',true); return; }
   await call('config',{key:'business_name',value:$('setBiz').value.trim()});
   await call('config',{key:'sms_phone',value:$('setSms').value.trim()});
+  if($('setMailFrom')){
+    await call('config',{key:'email_on',value:$('setMailOn').checked?'1':'0'});
+    await call('config',{key:'email_from',value:$('setMailFrom').value.trim()});
+    await call('config',{key:'email_from_name',value:$('setMailName').value.trim()});
+    await call('config',{key:'email_intro',value:$('setMailIntro').value.trim()});
+    await call('config',{key:'email_notes',value:$('setMailNotes').value.trim()});
+  }
   for(const m of MACHINES){ await call('machine',{machine:{id:m.id,name:$('mn_'+m.id).value.trim(),color:$('mc_'+m.id).value}}); }
   if(newPwd){ const r=await call('config',{key:'admin_token',value:newPwd});
     if(r.ok){ TOKEN=newPwd; try{localStorage.setItem('mp_token',newPwd);}catch(e){} toast('Réglages + nouveau code enregistrés ✓'); }
