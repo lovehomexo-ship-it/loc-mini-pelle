@@ -24,6 +24,7 @@
     color:var(--txt);font-size:16px;font-family:inherit}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
   .btn{width:100%;padding:14px;border:none;border-radius:12px;background:var(--accent);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+  .btn:disabled{opacity:.6;cursor:not-allowed}
   .btn.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
   header.top{position:sticky;top:0;z-index:20;background:rgba(15,23,42,.92);backdrop-filter:blur(8px);
     padding:14px 14px 10px;border-bottom:1px solid var(--line)}
@@ -111,6 +112,11 @@
   .check{display:flex;align-items:center;gap:9px;margin-top:14px}
   .check input{width:auto}
   .sheet .btns{display:flex;gap:10px;margin-top:20px}
+  .detail{display:flex;flex-direction:column;gap:0}
+  .drow{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+  .drow:first-child{border-top:none}
+  .drow b{color:var(--txt);text-align:right;font-weight:600;word-break:break-word}
+  .drow a{color:#93c5fd;text-decoration:none}
   .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#0c2f1a;border:1px solid #166534;color:#4ade80;padding:11px 18px;border-radius:12px;z-index:60;font-size:14px;font-weight:600;opacity:0;transition:.3s}
   .toast.show{opacity:1}
   .toast.err{background:#3b1d1d;border-color:#7f1d1d;color:#fca5a5}
@@ -194,7 +200,7 @@
       <div id="listBox"></div>
     </section>
 
-    <div style="text-align:center;color:#475569;font-size:11px;padding:22px 0 6px">Système de réservation · version 6 (heures · photo · notifications)</div>
+    <div style="text-align:center;color:#475569;font-size:11px;padding:22px 0 6px">Système de réservation · version 7 (résumé calendrier · anti-doublon)</div>
   </div>
 
   <button class="fab" id="fab">＋</button>
@@ -210,7 +216,6 @@ const MONTHS_SHORT=["jan","fév","mar","avr","mai","jui","juil","aoû","sep","oc
 const DOW=["L","M","M","J","V","S","D"];
 const STATUS_LABEL={pending:"Pré-réservation",confirmed:"Confirmée",done:"Terminée",cancelled:"Annulée"};
 let TOKEN=null, RES=[], MACHINES=[], BIZ="Mes locations", SMS="", NTFY="";
-let MAIL={on:true,from:"",fromName:"",intro:"",notes:"",ready:false};
 let cViewY,cViewM, photoData;
 const $=id=>document.getElementById(id);
 const eur=n=>Number(n||0).toLocaleString('fr-FR')+' €';
@@ -247,7 +252,6 @@ function startApp(r){
 }
 function applyData(r){
   RES=r.reservations||[]; MACHINES=r.machines||[]; BIZ=r.biz||"Mes locations"; SMS=r.sms||""; NTFY=r.ntfy||"";
-  MAIL={on:r.emailOn!==false, from:r.emailFrom||"", fromName:r.emailFromName||"", intro:r.emailIntro||"", notes:r.emailNotes||"", ready:!!r.emailReady};
   $('bizName').textContent=BIZ; renderAll();
 }
 async function reload(){ const r=await call('list',{}); if(r.ok) applyData(r); }
@@ -305,14 +309,13 @@ function renderDash(){
       <span class="grow">${esc(m.name)}<br><span style="color:var(--muted);font-size:12px">${rr.length} location(s)</span></span>
       <span class="amt">${eur(t)}</span></div>`;
   }).join('')||'<div class="empty-msg">Aucune machine</div>';
-  // Prochaines livraisons
   const todayIso=iso(new Date());
   const deliv=RES.filter(r=>r.delivery_date&&r.status!=='cancelled'&&r.delivery_date>=todayIso)
     .sort((a,b)=>(a.delivery_date+(a.delivery_time||'99:99')).localeCompare(b.delivery_date+(b.delivery_time||'99:99'))).slice(0,6);
   $('upcomingDeliv').innerHTML=deliv.length?`<div class="card" style="border-color:var(--accent);margin-top:14px">
     <h3>🚚 Prochaines livraisons</h3>${deliv.map(r=>{const m=machine(r.machine_id);const v=r.delivery_date<r.date_start;
       const nm=esc(((r.client_prenom||'')+' '+(r.client_nom||'')).trim())||'?';
-      return `<div class="deliv-row${v?' veille':''}" onclick="editRes('${r.id}')" style="${v?'background:#3a1d06;margin:4px -6px;padding:9px 8px;border-radius:8px;border-top:none':''}">
+      return `<div class="deliv-row${v?' veille':''}" onclick="showDetail('${r.id}')" style="${v?'background:#3a1d06;margin:4px -6px;padding:9px 8px;border-radius:8px;border-top:none':''}">
         <span class="dot" style="background:${m.color}"></span>
         <span class="grow"><b>${fmtD(r.delivery_date)}${r.delivery_time?' · '+r.delivery_time:''}</b>${v?' <span class="vtag">LA VEILLE</span>':''}<br>
         <span style="color:var(--muted);font-size:12px">${nm} — ${r.delivery_address?`<a href="${mapsLink(r.delivery_address)}" target="_blank" rel="noopener" style="color:#93c5fd" onclick="event.stopPropagation()">${esc(r.delivery_address)}</a>`:'adresse à préciser'}</span></span></div>`;}).join('')}</div>`:'';
@@ -381,7 +384,7 @@ function renderCal(){
       const m=machine(r.machine_id);
       const nm=esc(((r.client_prenom||'')+' '+(r.client_nom||'')).trim())||'?';
       const op=r.status==='pending'?'opacity:.6;border:1px dashed #fff':'';
-      return `<div class="cev" style="background:${m.color};${op}" onclick="editRes('${r.id}')">${nm}</div>`;
+      return `<div class="cev" style="background:${m.color};${op}" onclick="showDetail('${r.id}')">${nm}</div>`;
     }).join('')+(evs.length>3?`<div style="font-size:9px;color:var(--muted)">+${evs.length-3}</div>`:'');
     g.appendChild(el);
   }
@@ -409,6 +412,40 @@ async function delRes(id){
 async function showPhoto(id){
   const res=await call('getphoto',{id}); if(!res.photo){toast('Pas de photo',true);return;}
   $('modalRoot').innerHTML=`<div class="overlay" id="ov" onclick="closeModal()" style="align-items:center"><img src="${res.photo}" style="max-width:92vw;max-height:88vh;border-radius:12px"></div>`;
+}
+
+// ---- Fiche résumé (lecture seule) ----
+function showDetail(id){
+  const r=RES.find(x=>x.id===id); if(!r)return;
+  const m=machine(r.machine_id);
+  const nm=esc(((r.client_prenom||'')+' '+(r.client_nom||'')).trim())||'Sans nom';
+  const dr=r.date_start===r.date_end?fmtD(r.date_start):`${fmtD(r.date_start)} → ${fmtD(r.date_end)}`;
+  const veille=r.delivery_date&&r.delivery_date<r.date_start;
+  const rows=[];
+  rows.push(`<div class="drow"><span>Machine</span><b><span class="badge" style="background:${m.color}22;color:${m.color}">${esc(m.name)}</span></b></div>`);
+  rows.push(`<div class="drow"><span>Statut</span><b>${statusBadge(r.status)}${r.paid?' <span class="badge b-paid">payé</span>':''}</b></div>`);
+  rows.push(`<div class="drow"><span>Dates</span><b>${dr}</b></div>`);
+  if(r.delivery_date)rows.push(`<div class="drow"><span>🚚 Livraison</span><b>${fmtD(r.delivery_date)}${r.delivery_time?' à '+r.delivery_time:''}${veille?' · LA VEILLE !':''}</b></div>`);
+  if(r.client_phone)rows.push(`<div class="drow"><span>📞 Téléphone</span><b><a href="tel:${esc(r.client_phone)}">${esc(r.client_phone)}</a></b></div>`);
+  if(r.client_email)rows.push(`<div class="drow"><span>✉️ Email</span><b><a href="mailto:${esc(r.client_email)}">${esc(r.client_email)}</a></b></div>`);
+  if(r.delivery_address)rows.push(`<div class="drow"><span>📍 Adresse</span><b><a href="${mapsLink(r.delivery_address)}" target="_blank" rel="noopener">${esc(r.delivery_address)}</a></b></div>`);
+  rows.push(`<div class="drow"><span>Prix location</span><b>${eur(r.price_location)}</b></div>`);
+  rows.push(`<div class="drow"><span>Prix livraison TTC</span><b>${eur(r.price_delivery)}</b></div>`);
+  rows.push(`<div class="drow" style="font-size:16px"><span>Total</span><b>${eur(total(r))}</b></div>`);
+  if(r.hours_start!=null||r.hours_end!=null)rows.push(`<div class="drow"><span>⏱️ Compteur horaire</span><b>${r.hours_start??'?'} → ${r.hours_end??'?'} h</b></div>`);
+  if(r.notes)rows.push(`<div class="drow"><span>📝 Notes</span><b>${esc(r.notes)}</b></div>`);
+  const html=`<div class="overlay" id="ov"><div class="sheet">
+    <div class="sheet-head"><h2>${nm}</h2><button class="closeX" onclick="closeModal()" title="Fermer">✕</button></div>
+    <div class="detail">${rows.join('')}</div>
+    ${r.has_photo?'<div id="detPhoto" style="margin-top:14px;color:var(--muted);font-size:13px">Chargement de la photo…</div>':''}
+    <div class="btns">
+      <button class="btn ghost" onclick="closeModal()">Fermer</button>
+      <button class="btn" onclick="editRes('${r.id}')">Modifier</button>
+    </div>
+  </div></div>`;
+  $('modalRoot').innerHTML=html;
+  $('ov').onclick=e=>{if(e.target.id==='ov')closeModal();};
+  if(r.has_photo){ call('getphoto',{id:r.id}).then(res=>{ const el=$('detPhoto'); if(el) el.innerHTML=res.photo?`<img src="${res.photo}" style="max-width:100%;border-radius:10px;display:block">`:''; }); }
 }
 
 // ---- Photo compression ----
@@ -492,8 +529,11 @@ function setVeille(){
   if(!$('fmDtime').value)$('fmDtime').value='18:00';
 }
 async function saveForm(id){
+  const btn=$('fmSave');
+  if(btn && btn.disabled) return;           // anti-doublon : empêche le double-clic
   const ds=$('fmDs').value, de=$('fmDe').value||$('fmDs').value;
   if(!ds){toast('Indiquez au moins la date de début',true);return;}
+  if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
   const payload={id,machine_id:+$('fmMachine').value,status:$('fmStatus').value,
     date_start:ds,date_end:de,delivery_date:$('fmDdate').value||null,delivery_time:$('fmDtime').value||null,
     client_prenom:$('fmPrenom').value.trim(),client_nom:$('fmNom').value.trim(),
@@ -504,7 +544,7 @@ async function saveForm(id){
   if(photoData!==undefined) payload.photo=photoData;
   const res=await call('save',{reservation:payload});
   if(res.ok){toast(id?'Enregistré ✓':'Location créée ✓');closeModal();reload();}
-  else toast(res.error||'Erreur',true);
+  else { toast(res.error||'Erreur',true); if(btn){ btn.disabled=false; btn.textContent=id?'Enregistrer':'Créer'; } }
 }
 function editRes(id){ const r=RES.find(x=>x.id===id); if(r)openForm(r); }
 function duplicateRes(id){
@@ -531,28 +571,8 @@ $('btnSettings').onclick=()=>{
       <input id="mc_${m.id}" type="color" value="${m.color}" style="height:44px;padding:4px">
     </div>`).join('')}
     <h3 style="margin:18px 0 6px;font-size:14px">🔔 Notifications téléphone</h3>
-    <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Installe l'appli <b>ntfy</b> (gratuite, App Store / Play Store), puis abonne-toi à ce canal pour être notifié à chaque nouvelle réservation :</p>
+    <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Installe l'appli <b>ntfy</b> (gratuite), puis abonne-toi à ce canal pour être notifié à chaque nouvelle réservation :</p>
     <input id="setNtfy" value="${esc(NTFY)}" readonly onclick="this.select()">
-    <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Dans ntfy : « + » → « Subscribe to topic » → colle exactement ce nom.</p>
-    <h3 style="margin:18px 0 6px;font-size:14px">✉︎ Mail de confirmation client</h3>
-    <p style="color:var(--muted);font-size:13px;margin:0 0 10px">Envoyé automatiquement au client quand vous passez sa demande en « Confirmée ». Un seul envoi par réservation.</p>
-    <div style="background:${MAIL.ready?'#052e16':'#3f1d1d'};border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px">
-      ${MAIL.ready ? '✓ Service d\'envoi connecté' : '⚠︎ Service d\'envoi non configuré — les mails ne partiront pas'}
-    </div>
-    <label style="display:flex;align-items:center;gap:9px;margin:0 0 12px;cursor:pointer">
-      <input type="checkbox" id="setMailOn" ${MAIL.on?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)">
-      <span>Activer l'envoi automatique</span>
-    </label>
-    <label>Adresse expéditrice <span style="color:var(--muted);font-weight:400">(doit être validée chez Brevo)</span></label>
-    <input id="setMailFrom" type="email" value="${esc(MAIL.from)}" placeholder="moi@exemple.fr" autocapitalize="off" spellcheck="false">
-    <label>Nom affiché de l'expéditeur</label>
-    <input id="setMailName" value="${esc(MAIL.fromName)}" placeholder="Location Mini-pelles">
-    <label>Phrase d'introduction</label>
-    <textarea id="setMailIntro" rows="3" placeholder="Votre demande de location a bien été prise en compte et elle est validée.">${esc(MAIL.intro)}</textarea>
-    <label>Rappels affichés en fin de mail</label>
-    <textarea id="setMailNotes" rows="5" placeholder="Livraison la veille, plein de carburant au retour…">${esc(MAIL.notes)}</textarea>
-    <p style="color:var(--muted);font-size:12px;margin:6px 0 0">Le récapitulatif (machine, dates, adresse, prix) est ajouté automatiquement. Ces deux textes l'encadrent.</p>
-
     <h3 style="margin:18px 0 6px;font-size:14px">🔑 Changer mon code d'accès</h3>
     <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Laisse vide pour ne rien changer. Sinon saisis un nouveau code (4 caractères minimum).</p>
     <input id="setPwd" type="text" placeholder="Nouveau code d'accès" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -575,13 +595,6 @@ async function saveSettings(){
   if(newPwd && newPwd.length<4){ toast('Code trop court (4 caractères min.)',true); return; }
   await call('config',{key:'business_name',value:$('setBiz').value.trim()});
   await call('config',{key:'sms_phone',value:$('setSms').value.trim()});
-  if($('setMailFrom')){
-    await call('config',{key:'email_on',value:$('setMailOn').checked?'1':'0'});
-    await call('config',{key:'email_from',value:$('setMailFrom').value.trim()});
-    await call('config',{key:'email_from_name',value:$('setMailName').value.trim()});
-    await call('config',{key:'email_intro',value:$('setMailIntro').value.trim()});
-    await call('config',{key:'email_notes',value:$('setMailNotes').value.trim()});
-  }
   for(const m of MACHINES){ await call('machine',{machine:{id:m.id,name:$('mn_'+m.id).value.trim(),color:$('mc_'+m.id).value}}); }
   if(newPwd){ const r=await call('config',{key:'admin_token',value:newPwd});
     if(r.ok){ TOKEN=newPwd; try{localStorage.setItem('mp_token',newPwd);}catch(e){} toast('Réglages + nouveau code enregistrés ✓'); }
