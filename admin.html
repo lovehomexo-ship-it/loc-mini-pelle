@@ -88,6 +88,7 @@
   .deliv-row:first-of-type{border-top:none}
   .deliv-row .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
   .deliv-row .grow{flex:1;font-size:14px}
+  .clash{background:#3b1d1d;border:1px solid var(--danger);color:#fca5a5;border-radius:9px;padding:7px 10px;margin-top:9px;font-size:13px;font-weight:700}
   .vtag{background:var(--accent);color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:20px;margin-left:4px}
   .quickbtn{width:100%;margin-top:8px;padding:10px;border-radius:10px;background:#3a1d06;border:1px solid var(--accent);color:#fdba74;font-size:14px;font-weight:600;cursor:pointer}
   .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
@@ -200,7 +201,7 @@
       <div id="listBox"></div>
     </section>
 
-    <div style="text-align:center;color:#475569;font-size:11px;padding:22px 0 6px">PellePass · version 9 (titre PellePass)</div>
+    <div style="text-align:center;color:#475569;font-size:11px;padding:22px 0 6px">PellePass · version 10 (chevauchements · hors-ligne · e-mails)</div>
   </div>
 
   <button class="fab" id="fab">＋</button>
@@ -215,7 +216,7 @@ const MONTHS=["janvier","février","mars","avril","mai","juin","juillet","août"
 const MONTHS_SHORT=["jan","fév","mar","avr","mai","jui","juil","aoû","sep","oct","nov","déc"];
 const DOW=["L","M","M","J","V","S","D"];
 const STATUS_LABEL={pending:"Pré-réservation",confirmed:"Confirmée",done:"Terminée",cancelled:"Annulée"};
-let TOKEN=null, RES=[], MACHINES=[], BIZ="PellePass", SMS="", NTFY="";
+let TOKEN=null, RES=[], MACHINES=[], BIZ="PellePass", SMS="", NTFY="", EMAIL={};
 let cViewY,cViewM, photoData;
 const $=id=>document.getElementById(id);
 const eur=n=>Number(n||0).toLocaleString('fr-FR')+' €';
@@ -223,25 +224,39 @@ const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${Str
 const parse=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const mapsLink=a=>'https://maps.apple.com/?q='+encodeURIComponent(a||'');
-function toast(m,err){const t=$('toast');t.textContent=m;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',2400);}
+let toastT;
+function toast(m,err,ms){const t=$('toast');t.textContent=m;t.className='toast show'+(err?' err':'');clearTimeout(toastT);toastT=setTimeout(()=>t.className='toast',ms||2400);}
 
+const NET_ERR='Connexion impossible. Vérifiez votre réseau puis réessayez.';
 async function call(action,payload){
-  const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify(Object.assign({action,token:TOKEN},payload))});
-  return r.json();
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify(Object.assign({action,token:TOKEN},payload))});
+    return await r.json();
+  }catch(e){ return {ok:false,network:true,error:NET_ERR}; }
 }
 
 $('loginBtn').onclick=doLogin;
 $('token').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function loginMsg(m){ const e=$('loginErr'); e.textContent=m; e.classList.toggle('hidden',!m); }
+function loginBusy(on){ const b=$('loginBtn'); b.disabled=on; b.textContent=on?'Connexion…':'Entrer'; }
 async function doLogin(){
   const t=$('token').value.trim(); if(!t)return;
-  TOKEN=t;
+  TOKEN=t; loginMsg(''); loginBusy(true);
   const r=await call('list',{});
+  loginBusy(false);
   if(r.ok){ if($('remember').checked){ try{localStorage.setItem('mp_token',t);}catch(e){} } startApp(r); }
-  else { $('loginErr').textContent='Code incorrect.'; $('loginErr').classList.remove('hidden'); TOKEN=null; }
+  else { loginMsg(r.network?NET_ERR:'Code incorrect.'); TOKEN=null; }
 }
 function tryAuto(){ let t=null; try{t=localStorage.getItem('mp_token');}catch(e){}
-  if(t){ TOKEN=t; call('list',{}).then(r=>{ if(r.ok) startApp(r); }); } }
+  if(!t)return;
+  TOKEN=t; loginBusy(true);
+  call('list',{}).then(r=>{
+    loginBusy(false);
+    if(r.ok) return startApp(r);
+    // Hors ligne : on garde le code pré-rempli, « Entrer » relance la connexion.
+    if(r.network){ $('token').value=t; loginMsg(NET_ERR); }
+  }); }
 
 function startApp(r){
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
@@ -252,11 +267,38 @@ function startApp(r){
 }
 function applyData(r){
   RES=r.reservations||[]; MACHINES=r.machines||[]; BIZ=r.biz||"PellePass"; SMS=r.sms||""; NTFY=r.ntfy||"";
+  EMAIL={from:r.emailFrom||"",fromName:r.emailFromName||"",notes:r.emailNotes||"",intro:r.emailIntro||"",on:r.emailOn!==false,ready:!!r.emailReady};
   renderAll();
 }
-async function reload(){ const r=await call('list',{}); if(r.ok) applyData(r); }
+async function reload(){ const r=await call('list',{}); if(r.ok) applyData(r); else toast(r.network?'Hors ligne : la liste n\'a pas pu être actualisée':(r.error||'Erreur'),true,4000); }
 
 function machine(id){ return MACHINES.find(m=>m.id===id)||{name:'—',color:'#64748b'}; }
+function clientName(r){ return ((r.client_prenom||'')+' '+(r.client_nom||'')).trim()||'Sans nom'; }
+// Locations (non annulées) de la même machine dont les dates se croisent avec r.
+function overlaps(r){
+  if(r.status==='cancelled'||!r.date_start)return [];
+  const de=r.date_end||r.date_start;
+  return RES.filter(x=>x.id!==r.id&&x.status!=='cancelled'&&x.machine_id===r.machine_id&&x.date_start<=de&&x.date_end>=r.date_start);
+}
+function confirmOverlap(r){
+  const c=overlaps(r); if(!c.length)return true;
+  const lines=c.map(x=>`• ${clientName(x)} : ${fmtD(x.date_start)} → ${fmtD(x.date_end)} (${STATUS_LABEL[x.status]})`).join('\n');
+  return confirm(`⚠️ ${machine(r.machine_id).name} est déjà prise sur ces dates :\n${lines}\n\nEnregistrer quand même ?`);
+}
+// Message après enregistrement, avec le résultat de l'e-mail de confirmation s'il y en a eu un.
+function mailToast(okMsg,mail){
+  if(!mail||!mail.error){ toast(mail&&mail.sent?okMsg+' · e-mail envoyé au client ✉️':okMsg,false,mail&&mail.sent?3500:2400); return; }
+  if(mail.error==='déjà envoyé'){ toast(okMsg); return; }
+  toast(okMsg+' — e-mail non envoyé : '+mail.error,mail.error!=='envoi désactivé dans les réglages',5500);
+}
+async function sendMail(id){
+  const r=RES.find(x=>x.id===id); if(!r)return;
+  const again=!!r.confirmation_sent_at;
+  if(!confirm(`${again?'Renvoyer':'Envoyer'} l'e-mail de confirmation à ${r.client_email} ?`))return;
+  const res=await call('sendmail',{id,force:again});
+  if(res.ok&&res.mail&&res.mail.sent){ toast('E-mail envoyé au client ✉️'); closeModal(); reload(); }
+  else toast('E-mail non envoyé : '+((res.mail&&res.mail.error)||res.error||'erreur'),true,5500);
+}
 function total(r){ return Number(r.price_location||0)+Number(r.price_delivery||0); }
 function isRevenue(r){ return r.status==='confirmed'||r.status==='done'; }
 function fmtD(s){const d=parse(s);return d.getDate()+' '+MONTHS_SHORT[d.getMonth()]+' '+d.getFullYear();}
@@ -342,9 +384,12 @@ function renderList(){
     if(r.notes)meta+=`<br>📝 ${esc(r.notes)}`;
     const veille=r.delivery_date&&r.delivery_date<r.date_start;
     const delivHtml=r.delivery_date?`<div class="deliv${veille?' veille':''}">🚚 Livraison ${fmtD(r.delivery_date)}${r.delivery_time?' à '+r.delivery_time:''}${veille?' · LA VEILLE !':''}</div>`:'';
+    const clash=overlaps(r);
+    const clashHtml=clash.length?`<div class="clash">⚠️ Chevauche ${clash.map(x=>esc(clientName(x))).join(', ')} sur cette machine</div>`:'';
     let acts='';
     if(r.status==='pending')acts+=`<button class="chip ok" onclick="setStatus('${r.id}','confirmed')">✓ Valider</button>`;
     if(r.status==='confirmed')acts+=`<button class="chip ok" onclick="setStatus('${r.id}','done')">Marquer terminée</button>`;
+    if((r.status==='confirmed'||r.status==='done')&&r.client_email&&!r.confirmation_sent_at)acts+=`<button class="chip" onclick="sendMail('${r.id}')">✉️ Envoyer l'e-mail</button>`;
     if(r.has_photo)acts+=`<button class="chip" onclick="showPhoto('${r.id}')">📷 Photo</button>`;
     acts+=`<button class="chip" onclick="editRes('${r.id}')">Modifier</button>`;
     if(r.status!=='cancelled')acts+=`<button class="chip warn" onclick="setStatus('${r.id}','cancelled')">Annuler</button>`;
@@ -359,6 +404,7 @@ function renderList(){
           <div class="small">${eur(r.price_location)} loc.</div>
           <div class="small">${eur(r.price_delivery)} livr.</div></div>
       </div>
+      ${clashHtml}
       ${delivHtml}
       ${meta?`<div class="meta">${meta}</div>`:''}
       <div class="actions">${acts}</div>
@@ -400,17 +446,19 @@ function switchTab(name){
 }
 
 async function setStatus(id,status){
+  const r=RES.find(x=>x.id===id);
+  if(r&&status==='confirmed'&&!confirmOverlap(Object.assign({},r,{status})))return;
   const res=await call('save',{reservation:{id,status}});
-  if(res.ok){toast(status==='confirmed'?'Réservation validée ✓':status==='cancelled'?'Réservation annulée':'Mise à jour ✓');reload();}
-  else toast(res.error||'Erreur',true);
+  if(res.ok){mailToast(status==='confirmed'?'Réservation validée ✓':status==='cancelled'?'Réservation annulée':'Mise à jour ✓',res.mail);reload();}
+  else toast(res.error||'Erreur',true,4000);
 }
 async function delRes(id){
   if(!confirm('Supprimer définitivement cette location ?'))return;
   const res=await call('delete',{id});
-  if(res.ok){closeModal();toast('Supprimée');reload();} else toast('Erreur',true);
+  if(res.ok){closeModal();toast('Supprimée');reload();} else toast(res.error||'Erreur',true,4000);
 }
 async function showPhoto(id){
-  const res=await call('getphoto',{id}); if(!res.photo){toast('Pas de photo',true);return;}
+  const res=await call('getphoto',{id}); if(!res.photo){toast(res.network?res.error:'Pas de photo',true,res.network?4000:2400);return;}
   $('modalRoot').innerHTML=`<div class="overlay" id="ov" onclick="closeModal()" style="align-items:center"><img src="${res.photo}" style="max-width:92vw;max-height:88vh;border-radius:12px"></div>`;
 }
 
@@ -434,9 +482,15 @@ function showDetail(id){
   rows.push(`<div class="drow" style="font-size:16px"><span>Total</span><b>${eur(total(r))}</b></div>`);
   if(r.hours_start!=null||r.hours_end!=null)rows.push(`<div class="drow"><span>⏱️ Compteur horaire</span><b>${r.hours_start??'?'} → ${r.hours_end??'?'} h</b></div>`);
   if(r.notes)rows.push(`<div class="drow"><span>📝 Notes</span><b>${esc(r.notes)}</b></div>`);
+  const canMail=(r.status==='confirmed'||r.status==='done')&&r.client_email;
+  if(canMail){ const sent=r.confirmation_sent_at?new Date(r.confirmation_sent_at):null;
+    rows.push(`<div class="drow"><span>✉️ E-mail de confirmation</span><b>${sent?'envoyé le '+sent.toLocaleDateString('fr-FR')+' à '+sent.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'<span style="color:#fbbf24">pas envoyé</span>'}</b></div>`); }
+  const clash=overlaps(r);
   const html=`<div class="overlay" id="ov"><div class="sheet">
     <div class="sheet-head"><h2>${nm}</h2><button class="closeX" onclick="closeModal()" title="Fermer">✕</button></div>
+    ${clash.length?`<div class="clash" style="margin:0 0 8px">⚠️ Chevauche ${clash.map(x=>esc(clientName(x))+' ('+fmtD(x.date_start)+' → '+fmtD(x.date_end)+')').join(', ')}</div>`:''}
     <div class="detail">${rows.join('')}</div>
+    ${canMail?`<button class="btn ghost" style="margin-top:12px" onclick="sendMail('${r.id}')">✉️ ${r.confirmation_sent_at?'Renvoyer':'Envoyer'} l'e-mail de confirmation</button>`:''}
     ${r.has_photo?'<div id="detPhoto" style="margin-top:14px;color:var(--muted);font-size:13px">Chargement de la photo…</div>':''}
     <div class="btns">
       <button class="btn ghost" onclick="closeModal()">Fermer</button>
@@ -533,6 +587,8 @@ async function saveForm(id){
   if(btn && btn.disabled) return;           // anti-doublon : empêche le double-clic
   const ds=$('fmDs').value, de=$('fmDe').value||$('fmDs').value;
   if(!ds){toast('Indiquez au moins la date de début',true);return;}
+  if(de<ds){toast('La date de fin est avant la date de début',true);return;}
+  if(!confirmOverlap({id,machine_id:+$('fmMachine').value,status:$('fmStatus').value,date_start:ds,date_end:de}))return;
   if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
   const payload={id,machine_id:+$('fmMachine').value,status:$('fmStatus').value,
     date_start:ds,date_end:de,delivery_date:$('fmDdate').value||null,delivery_time:$('fmDtime').value||null,
@@ -543,8 +599,8 @@ async function saveForm(id){
     notes:$('fmNotes').value.trim(),paid:$('fmPaid').checked,source:id?undefined:'admin'};
   if(photoData!==undefined) payload.photo=photoData;
   const res=await call('save',{reservation:payload});
-  if(res.ok){toast(id?'Enregistré ✓':'Location créée ✓');closeModal();reload();}
-  else { toast(res.error||'Erreur',true); if(btn){ btn.disabled=false; btn.textContent=id?'Enregistrer':'Créer'; } }
+  if(res.ok){mailToast(id?'Enregistré ✓':'Location créée ✓',res.mail);closeModal();reload();}
+  else { toast(res.error||'Erreur',true,4000); if(btn){ btn.disabled=false; btn.textContent=id?'Enregistrer':'Créer'; } }
 }
 function editRes(id){ const r=RES.find(x=>x.id===id); if(r)openForm(r); }
 function duplicateRes(id){
@@ -570,6 +626,17 @@ $('btnSettings').onclick=()=>{
       <input id="mn_${m.id}" value="${esc(m.name)}">
       <input id="mc_${m.id}" type="color" value="${m.color}" style="height:44px;padding:4px">
     </div>`).join('')}
+    <h3 style="margin:18px 0 6px;font-size:14px">✉️ E-mail de confirmation aux clients</h3>
+    ${EMAIL.ready?'':`<p style="color:#fca5a5;font-size:13px;margin:0 0 8px">Le service d'envoi n'est pas configuré sur le serveur : aucun e-mail ne partira pour l'instant.</p>`}
+    <div class="check" style="margin-top:4px"><input type="checkbox" id="setMailOn" ${EMAIL.on?'checked':''}><label for="setMailOn" style="margin:0">Envoyer automatiquement un e-mail au client quand je valide sa réservation</label></div>
+    <label>Adresse d'expéditeur</label>
+    <input id="setMailFrom" type="email" value="${esc(EMAIL.from)}" placeholder="contact@exemple.fr">
+    <label>Nom de l'expéditeur</label>
+    <input id="setMailName" value="${esc(EMAIL.fromName)}" placeholder="${esc(BIZ)}">
+    <label>Message d'introduction</label>
+    <textarea id="setMailIntro" rows="3" placeholder="Votre demande de location a bien été prise en compte et elle est validée.">${esc(EMAIL.intro)}</textarea>
+    <label>Encadré « À retenir » (caution, horaires, conditions…)</label>
+    <textarea id="setMailNotes" rows="3">${esc(EMAIL.notes)}</textarea>
     <h3 style="margin:18px 0 6px;font-size:14px">🔔 Notifications téléphone</h3>
     <p style="color:var(--muted);font-size:13px;margin:0 0 8px">Installe l'appli <b>ntfy</b> (gratuite), puis abonne-toi à ce canal pour être notifié à chaque nouvelle réservation :</p>
     <input id="setNtfy" value="${esc(NTFY)}" readonly onclick="this.select()">
@@ -593,9 +660,14 @@ function copyLink(l){ navigator.clipboard.writeText(l).then(()=>toast('Lien copi
 async function saveSettings(){
   const newPwd=$('setPwd')?$('setPwd').value.trim():'';
   if(newPwd && newPwd.length<4){ toast('Code trop court (4 caractères min.)',true); return; }
-  await call('config',{key:'business_name',value:$('setBiz').value.trim()});
-  await call('config',{key:'sms_phone',value:$('setSms').value.trim()});
-  for(const m of MACHINES){ await call('machine',{machine:{id:m.id,name:$('mn_'+m.id).value.trim(),color:$('mc_'+m.id).value}}); }
+  const btn=$('setSave'); btn.disabled=true; btn.textContent='Enregistrement…';
+  const cfg={business_name:$('setBiz').value.trim(),sms_phone:$('setSms').value.trim(),
+    email_on:$('setMailOn').checked?'1':'0',email_from:$('setMailFrom').value.trim(),email_from_name:$('setMailName').value.trim(),
+    email_intro:$('setMailIntro').value.trim(),email_notes:$('setMailNotes').value.trim()};
+  let fail=null;
+  for(const k in cfg){ const r=await call('config',{key:k,value:cfg[k]}); if(!r.ok){fail=r;break;} }
+  if(!fail) for(const m of MACHINES){ const r=await call('machine',{machine:{id:m.id,name:$('mn_'+m.id).value.trim(),color:$('mc_'+m.id).value}}); if(!r.ok){fail=r;break;} }
+  if(fail){ btn.disabled=false; btn.textContent='Enregistrer'; toast('Réglages non enregistrés : '+(fail.error||'erreur'),true,5000); return; }
   if(newPwd){ const r=await call('config',{key:'admin_token',value:newPwd});
     if(r.ok){ TOKEN=newPwd; try{localStorage.setItem('mp_token',newPwd);}catch(e){} toast('Réglages + nouveau code enregistrés ✓'); }
     else { toast('Code non modifié : '+(r.error||'erreur'),true); } }

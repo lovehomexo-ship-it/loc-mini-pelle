@@ -141,14 +141,22 @@ const parse = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m
 const today = (()=>{ const t=new Date(); return new Date(t.getFullYear(),t.getMonth(),t.getDate()); })();
 const esc = s => (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
+const NET_ERR = 'Connexion impossible. Vérifiez votre réseau puis réessayez.';
 async function call(action, payload){
-  const r = await fetch(API,{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify(Object.assign({action},payload))});
-  return r.json();
+  try {
+    const r = await fetch(API,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify(Object.assign({action},payload))});
+    return await r.json();
+  } catch(e){ return {ok:false, network:true, error:NET_ERR}; }
 }
 
 async function init(){
+  $('machines').innerHTML='<div style="color:var(--muted);font-size:14px">Chargement des machines…</div>';
   const r = await call('init',{});
+  if(r.network){
+    $('machines').innerHTML=`<div class="err" style="margin-top:0">${NET_ERR}</div><button class="btn ghost" style="margin-top:10px" onclick="init()">Réessayer</button>`;
+    return;
+  }
   machines = r.machines||[]; busy = r.busy||[]; SMS = r.sms||null;
   if(SMS){
     const link = `<a href="sms:${SMS}">${SMS}</a>`;
@@ -242,14 +250,27 @@ $('submit').onclick=async()=>{
   if(!phone) return showErr('Indiquez un téléphone.');
   if(!address) return showErr('Indiquez l\'adresse de livraison.');
   const btn=$('submit'); btn.disabled=true; btn.textContent='Envoi…';
+  const resetBtn=()=>{ btn.disabled=false; btn.textContent='Envoyer ma demande de réservation'; };
+  const ds=selStart, de=selEnd||selStart;
+  // Revérifie les disponibilités juste avant l'envoi (la page a pu rester ouverte longtemps).
+  const fresh = await call('init',{});
+  if(fresh.network){ showErr(NET_ERR); return resetBtn(); }
+  busy = fresh.busy||busy;
+  const taken = busy.some(b=>b.machine_id===selMachine && b.date_start<=de && b.date_end>=ds);
+  if(taken) return conflict(resetBtn);
   const res = await call('reserve',{reservation:{
-    machine_id:selMachine, date_start:selStart, date_end:selEnd||selStart,
+    machine_id:selMachine, date_start:ds, date_end:de,
     client_prenom:prenom, client_nom:$('nom').value.trim(), client_email:email,
     client_phone:phone, delivery_address:address, notes:$('notes').value.trim()
   }});
   if(res.ok){ $('form-view').classList.add('hidden'); $('ok-view').classList.remove('hidden'); window.scrollTo(0,0); }
-  else { showErr(res.error||'Une erreur est survenue, réessayez.'); btn.disabled=false; btn.textContent='Envoyer ma demande de réservation'; }
+  else if(res.code==='conflict'){ const r=await call('init',{}); if(r.busy) busy=r.busy; conflict(resetBtn); }
+  else { showErr(res.error||'Une erreur est survenue, réessayez.'); resetBtn(); }
 };
+function conflict(resetBtn){
+  selStart=selEnd=null; renderCal(); updatePick(); resetBtn();
+  showErr('Désolé, cette machine vient d\'être réservée sur une partie de ces dates. Le calendrier est à jour : choisissez d\'autres dates.');
+}
 function showErr(m){ const e=$('err'); e.textContent=m; e.className='err'; }
 
 init();
