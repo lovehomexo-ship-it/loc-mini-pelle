@@ -200,7 +200,7 @@
       <div id="listBox"></div>
     </section>
 
-    <div style="text-align:center;color:#475569;font-size:11px;padding:22px 0 6px">PellePass · version 8 (nouveau nom)</div>
+    <div style="text-align:center;color:#475569;font-size:11px;padding:22px 0 6px">PellePass · version 9 (titre PellePass)</div>
   </div>
 
   <button class="fab" id="fab">＋</button>
@@ -252,7 +252,7 @@ function startApp(r){
 }
 function applyData(r){
   RES=r.reservations||[]; MACHINES=r.machines||[]; BIZ=r.biz||"PellePass"; SMS=r.sms||""; NTFY=r.ntfy||"";
-  $('bizName').textContent=BIZ; renderAll();
+  renderAll();
 }
 async function reload(){ const r=await call('list',{}); if(r.ok) applyData(r); }
 

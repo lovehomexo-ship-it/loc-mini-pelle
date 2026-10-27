@@ -67,7 +67,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>🚜 <span id="biz">Réserver une mini-pelle</span></h1>
+    <h1>🚜 <span id="biz">PellePass</span></h1>
     <p>Choisissez votre machine, vos dates, et laissez vos coordonnées. Nous vous recontactons pour confirmer.</p>
   </header>
 
@@ -149,7 +149,6 @@ async function call(action, payload){
 
 async function init(){
   const r = await call('init',{});
-  if(r.biz) $('biz').textContent = r.biz;
   machines = r.machines||[]; busy = r.busy||[]; SMS = r.sms||null;
   if(SMS){
     const link = `<a href="sms:${SMS}">${SMS}</a>`;
